@@ -5822,8 +5822,6 @@ async function durableFinancialRpc(name,args,options={}){
             return `${s.round} 진출! +${award} 토큰`;
         }
 
-        // 해금은 최고 리그 도달 기록을 기준으로 유지한다.
-        const SAUDI_UNLOCK_LEAGUES = [0, 1, 3, 4, 6, 8, 10, 12, 13];
         function saudiReachedLeague() {
             const l = leagueState;
             if (!l) return 0;
@@ -5838,8 +5836,7 @@ async function durableFinancialRpc(name,args,options={}){
         }
         function saudiUnlockInfo(team) {
             const index = saudiData.findIndex(x => x.id === team?.id);
-            const required = index >= 0 ? SAUDI_UNLOCK_LEAGUES[index] : LG.length;
-            return { unlocked: index >= 0 && saudiReachedLeague() >= required, league: LG[required]?.n || '상위 리그' };
+            return { unlocked: index >= 0, league: '사우디 모드' };
         }
         function checkSaudiUnlock(team) {
             const info = saudiUnlockInfo(team);
