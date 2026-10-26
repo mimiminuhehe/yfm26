@@ -5843,6 +5843,28 @@ async function durableFinancialRpc(name,args,options={}){
             if (!info.unlocked) { alert(`${info.league}에 도달하여 해금할 수 있습니다.`); return false; }
             return true;
         }
+        let saudiInstantWinBusy = false;
+        async function claimSaudiInstantWin(team, card) {
+            if (saudiInstantWinBusy) return;
+            saudiInstantWinBusy = true;
+            card?.setAttribute('aria-busy', 'true');
+            card?.classList.add('opacity-60');
+            try {
+                const granted = await awardTokens(team.reward, 'match_reward');
+                if (!granted) {
+                    managerToast('토큰 보상을 확인하지 못했습니다. 연결과 잔액을 확인해 주세요.');
+                    return;
+                }
+                managerToast(`${team.name} 즉시 승리! +${team.reward.toLocaleString()} 토큰 지급`);
+            } catch (error) {
+                console.warn('사우디 즉시 승리 보상 지급 실패:', error);
+                managerToast('보상 지급에 실패했습니다. 잠시 후 잔액을 확인해 주세요.');
+            } finally {
+                saudiInstantWinBusy = false;
+                card?.removeAttribute('aria-busy');
+                card?.classList.remove('opacity-60');
+            }
+        }
         function initSaudiMode() {
             const list = document.getElementById('saudi-team-list'); list.innerHTML = '';
             saudiData.forEach(team => {
@@ -5853,7 +5875,7 @@ async function durableFinancialRpc(name,args,options={}){
                 if (info.unlocked) {
                     el.classList.add('hover:border-yellow-400', 'hover:-translate-y-1', 'cursor-pointer');
                     el.setAttribute('role', 'button'); el.tabIndex = 0;
-                    el.onclick = () => openPrematch('saudi', team);
+                    el.onclick = () => team.id === 'saudi_9' ? claimSaudiInstantWin(team, el) : openPrematch('saudi', team);
                     el.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); el.click(); } };
                     el.setAttribute('aria-label', `${team.name} · 승리 시 ${team.reward} 토큰`);
                     el.innerHTML = content;
