@@ -71090,6 +71090,75 @@ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&$('screen
 })();
 </script>
 
+<script id="yfm-gs-quick-wins">
+(function () {
+    const api = window.YFMHalloween;
+    if (!api || typeof api.playStage !== 'function') return;
+
+    let busy = false;
+    const normalPlayStage = api.playStage;
+    async function playStage() {
+        if (busy) return;
+        busy = true;
+        const button = document.querySelector('#screen-halloween .he-challenge .he-btn.primary');
+        if (button) button.disabled = true;
+        try {
+            await api.retrySavedResults();
+            await api.refresh();
+            const state = api.state;
+            const run = state?.run;
+            const stage = Number(run?.stage);
+            const owner = accountUser?.id;
+            if (!owner || !window.yfmAccountReady || run?.status !== 'active' ||
+                stage < 1 || stage > 5 || state?.match) {
+                return normalPlayStage();
+            }
+
+            const requestKey = `yfm_halloween_instant_win_${owner}_${run.id}_${stage}`;
+            let requestId = localStorage.getItem(requestKey);
+            if (!requestId) {
+                requestId = walletRequestId();
+                localStorage.setItem(requestKey, requestId);
+            }
+            const { data, error } = await walletRpcWithRetry('yfm_halloween_rpc', {
+                p_action: 'finish_local',
+                p_payload: {
+                    request_id: requestId,
+                    run_id: run.id,
+                    stage,
+                    home: 1,
+                    away: 0,
+                    penWinner: null,
+                    forfeit: false,
+                    time: 90
+                }
+            }, { maxAttempts: 2, timeoutMs: 12000 });
+            if (error) throw error;
+            if (!data?.ok) throw new Error(data?.reason || 'GS 단계 승리를 확인하지 못했습니다.');
+
+            await api.refresh();
+            const updatedRun = api.state?.run;
+            if (updatedRun?.id !== run.id ||
+                !(updatedRun.status === 'complete' || Number(updatedRun.stage) > stage)) {
+                throw new Error('서버에서 단계 승리를 확인하지 못했습니다.');
+            }
+            localStorage.removeItem(requestKey);
+            const reward = Number(data.reward) || 0;
+            managerToast(`GS ${stage}단계 즉시 승리!${reward ? ` 할로윈 토큰 ${reward}개 지급` : ''}`);
+        } catch (error) {
+            managerToast(error?.message || 'GS 단계 처리에 실패했습니다. 다시 시도해 주세요.');
+        } finally {
+            busy = false;
+            if (button?.isConnected) button.disabled = false;
+        }
+    }
+
+    const descriptors = Object.getOwnPropertyDescriptors(api);
+    descriptors.playStage = { value: playStage, writable: false, enumerable: true, configurable: false };
+    window.YFMHalloween = Object.freeze(Object.defineProperties({}, descriptors));
+})();
+</script>
+
 </body>
 </html>
 
