@@ -5885,7 +5885,9 @@ async function durableFinancialRpc(name,args,options={}){
                 const info = saudiUnlockInfo(team), el = document.createElement('div');
                 el.className = 'min-w-0 bg-gray-800 rounded-2xl p-4 flex flex-col items-center justify-center border border-gray-600 transition shadow-xl';
                 el.style.position = 'relative';
-                const instantRewardLabel = team.id === 'saudi_7'
+                const instantRewardLabel = team.id === 'saudi_6'
+                    ? 'GS 5단계 경기 바로가기 · 승리 보상 500 할로윈 토큰'
+                    : team.id === 'saudi_7'
                     ? '선택 즉시 승리 · 진화 토큰 5개'
                     : team.id === 'saudi_9'
                         ? '선택 즉시 승리 · 10,000 T + 진화 토큰 1개'
@@ -5894,11 +5896,15 @@ async function durableFinancialRpc(name,args,options={}){
                 if (info.unlocked) {
                     el.classList.add('hover:border-yellow-400', 'hover:-translate-y-1', 'cursor-pointer');
                     el.setAttribute('role', 'button'); el.tabIndex = 0;
-                    el.onclick = () => ['saudi_7', 'saudi_9'].includes(team.id)
-                        ? claimSaudiInstantWin(team, el)
-                        : openPrematch('saudi', team);
+                    el.onclick = () => team.id === 'saudi_6'
+                        ? window.YFMHalloween?.playStageFiveMatch?.()
+                        : ['saudi_7', 'saudi_9'].includes(team.id)
+                            ? claimSaudiInstantWin(team, el)
+                            : openPrematch('saudi', team);
                     el.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); el.click(); } };
-                    el.setAttribute('aria-label', `${team.name} · 승리 시 ${team.reward} 토큰`);
+                    el.setAttribute('aria-label', team.id === 'saudi_6'
+                        ? `${team.name} · GS 5단계 경기 바로가기 · 승리 보상 500 할로윈 토큰`
+                        : `${team.name} · 승리 시 ${team.reward} 토큰`);
                     el.innerHTML = content;
                 } else {
                     el.setAttribute('aria-disabled', 'true'); el.style.cursor = 'not-allowed';
@@ -70935,6 +70941,33 @@ async function sync(){if(!accountUser?.id||!window.yfmAccountReady)throw Error('
 function pending(kind,pack){const key=cacheKey(kind),old=read(key);if(old)return old;const x={request_id:walletRequestId(),...(pack?{pack}:{})};localStorage.setItem(key,JSON.stringify(x));return x;}
 async function startRun(){if(savedResults().length){flushSavedResults();say('기기에 보관된 경기 결과를 서버에 반영한 뒤 도전할 수 있습니다.',true);return;}if(H.busy)return;H.busy=true;render();try{await sync();const p=pending('entry');const data=await rpc('start',p);if(data.ordinary_balance!=null)applyServerWallet(Number(data.ordinary_balance));localStorage.removeItem(cacheKey('entry'));await refresh();}catch(e){say(errorText(e),true);}finally{H.busy=false;render();}}
 async function playStage(){if(H.busy||gameSessionBlocked)return;try{restoreEventProgress();if(!H.loaded)await refresh();if(!H.loaded||H.state?.run?.status!=='active')return;openPrematch('halloween',enemy());flushSavedResults();}catch(e){say(errorText(e),true);}}
+async function playStageFiveMatch(){
+ if(H.busy||gameSessionBlocked)return false;
+ H.busy=true;
+ try{
+  if(savedResults().length){
+   await flushSavedResults();
+   if(savedResults().length){managerToast('이전 경기 결과를 서버에 저장한 뒤 다시 시도해 주세요.');return false;}
+  }
+  await refresh();
+  if(!accountUser?.id||!window.yfmAccountReady){managerToast('로그인 후 GS 도전을 이용해 주세요.');return false;}
+  const run=H.state?.run;
+  if(run?.status!=='active'){
+   const message=run?.status==='complete'
+    ?'이번 GS 도전은 완료되었습니다. 새 도전을 시작하고 5단계까지 진행해 주세요.'
+    :run?.status==='lost'
+     ?'이번 GS 도전은 종료되었습니다. 새 도전을 시작해 주세요.'
+     :'GS 도전을 시작하고 5단계까지 진행한 뒤 인테르를 눌러 주세요.';
+   managerToast(message);
+   return false;
+  }
+  if(Number(run.stage)!==5){managerToast(`현재 GS ${run.stage}단계입니다. 1~4단계를 완료한 뒤 인테르를 눌러 주세요.`);return false;}
+  openPrematch('halloween',enemy(5));
+  flushSavedResults();
+  return true;
+ }catch(e){managerToast(errorText(e));return false;}
+ finally{H.busy=false;if($('screen-halloween')?.classList.contains('active'))render();}
+}
 async function beginMatch(setup){if(H.busy||gameSessionBlocked)return;H.busy=true;try{saveData();restoreEventProgress();localStorage.removeItem(cacheKey('match'));const m=pendingMatch;if(!m||m.mode!=='halloween')throw Error('경기 설정을 확인해 주세요.');const selectedEnemy=m.e||enemy();if(!H.loaded)await refresh();if(!H.loaded||H.state?.run?.status!=='active')throw Error('도전 상태를 다시 확인해 주세요.');if(selectedEnemy.eventRunId!==H.state.run.id||Number(selectedEnemy.eventStage)!==Number(H.state.run.stage))throw Error('도전 단계가 갱신되었습니다. 경기 준비 창을 닫고 다시 시작해 주세요.');const eventEnemy={...selectedEnemy,eventRunId:H.state.run.id,eventStage:Number(H.state.run.stage)};closePrematch();prepareMatch('halloween',eventEnemy,JSON.parse(JSON.stringify(setup)));if(currentMatchState?.mode==='halloween'){currentMatchState.eventRunId=eventEnemy.eventRunId;currentMatchState.eventStage=eventEnemy.eventStage;currentMatchState.eventFinishRequestId=walletRequestId();}}catch(e){say(errorText(e),true);managerToast(errorText(e));}finally{H.busy=false;}}
 function eventCheckpoint(owner=accountUser?.id){const durable=durableStore.cache.get(owner)?.event;if(durable?.owner===owner&&Array.isArray(durable.queue))return JSON.parse(JSON.stringify(durable));const own=read(cacheKey('checkpoint',owner));if(own?.version===1&&own.owner===owner&&Array.isArray(own.queue))return own;const backup=read('fm_halloween_progress');if(backup?.version===1&&backup.owner===owner&&Array.isArray(backup.queue))return backup;const legacy=read(cacheKey('saved_results',owner),[]);return {version:1,owner,base:read(cacheKey('state',owner)),queue:Array.isArray(legacy)?legacy:[],updatedAt:0};}
 async function writeEventCheckpoint(value,owner=accountUser?.id){
@@ -71058,7 +71091,7 @@ const oldBreak=resumeFromBreak;resumeFromBreak=function(){return oldBreak.apply(
 const oldForfeit=forfeitMatch;forfeitMatch=function(){return oldForfeit.apply(this,arguments);};
 const oldLogout=signOutGameAccount;signOutGameAccount=async function(){stopMirror();HauntedPack.close();clearTimeout(H.timer);H.state=null;H.loaded=false;H.owner=null;return oldLogout.apply(this,arguments);};
 window.openHalloweenEvent=()=>open('lobby');
-window.YFMHalloween=Object.freeze({open,refresh,retrySavedResults:flushSavedResults,startRun,playStage,buy,odds,enemy,roster,stages:STAGES,version:VERSION,get state(){return H.state;}});
+window.YFMHalloween=Object.freeze({open,refresh,retrySavedResults:flushSavedResults,startRun,playStage,playStageFiveMatch,buy,odds,enemy,roster,stages:STAGES,version:VERSION,get state(){return H.state;}});
 
 installUI();
 window.addEventListener('online',flushSavedResults);setInterval(()=>{if(!document.hidden)flushSavedResults();},30000);setTimeout(flushSavedResults,2000);

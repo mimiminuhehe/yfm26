@@ -1,0 +1,1 @@
+- [Beta testing access](beta-testing-access.md) — during beta, the owner intends test features and rewards to be available to all accounts.
